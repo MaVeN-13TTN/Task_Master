@@ -13,22 +13,55 @@ const statisticsButton = document.getElementById("statistics-button");
 const statisticsModal = document.getElementById("statistics-modal");
 const closeStatisticsButton = document.getElementById("close-statistics");
 const saveSettingsButton = document.getElementById("save-settings");
+const taskCompletionModal = document.getElementById("task-completion-modal");
+const closetaskCompletionModal = document.getElementById(
+  "close-task-completion-modal"
+);
+const badgeModal = document.getElementById("badge-modal");
+const closeBadgeModal = document.getElementById("close-badge-modal");
 
 // Task array to store tasks
 let tasks = [];
 
 // Gamification variables
-let userBadges = [];
 let streak = 0;
 let lastCompletionDate = null;
 let username = "";
 
 const badges = [
-  { name: "Beginner", tasks: 5, icon: "🥉" },
-  { name: "Intermediate", tasks: 15, icon: "🥈" },
-  { name: "Expert", tasks: 30, icon: "🥇" },
-  { name: "Master", tasks: 50, icon: "👑" },
+  {
+    name: "Beginner",
+    tasks: 5,
+    icon: "🥉",
+    description: "You're off to a great start!",
+  },
+  {
+    name: "Go-Getter",
+    tasks: 15,
+    icon: "🥈",
+    description: "You're making excellent progress!",
+  },
+  {
+    name: "Achiever",
+    tasks: 30,
+    icon: "🥇",
+    description: "You're on fire! Keep it up!",
+  },
+  {
+    name: "Task Master",
+    tasks: 50,
+    icon: "👑",
+    description: "You're a true productivity champion!",
+  },
 ];
+
+// Initialize user's badge
+let currentBadge = {
+  name: "Novice",
+  tasks: 0,
+  icon: "🌱",
+  description: "Everyone starts somewhere. You've got this!",
+};
 
 // Statistics object
 let statistics = {
@@ -38,10 +71,6 @@ let statistics = {
   completionRateByDay: {},
   completionRateByPriority: { low: 0, medium: 0, high: 0 },
 };
-
-// Pagination variables
-const TASKS_PER_PAGE = 20;
-let currentPage = 1;
 
 // Function to get current date in YYYY-MM-DD format
 function getCurrentDate() {
@@ -58,7 +87,6 @@ function loadData() {
   const storedData = JSON.parse(localStorage.getItem("todoAppData"));
   if (storedData) {
     tasks = storedData.tasks || [];
-    userBadges = storedData.userBadges || [];
     streak = storedData.streak || 0;
     lastCompletionDate = storedData.lastCompletionDate
       ? new Date(storedData.lastCompletionDate)
@@ -71,6 +99,12 @@ function loadData() {
       completionRateByPriority: { low: 0, medium: 0, high: 0 },
     };
     username = storedData.username || "";
+    currentBadge = storedData.currentBadge || {
+      name: "Novice",
+      tasks: 0,
+      icon: "🌱",
+      description: "Everyone starts somewhere. You've got this!",
+    };
   } else {
     clearData();
   }
@@ -78,13 +112,20 @@ function loadData() {
 
 // Function to save data to localStorage
 function saveData() {
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  // Filter tasks to only include those from the last 7 days
+  const recentTasks = tasks.filter(
+    (task) => new Date(task.creationDate) >= oneWeekAgo
+  );
+
   const dataToStore = {
-    tasks,
-    userBadges,
+    tasks: recentTasks,
     streak,
     lastCompletionDate,
     statistics,
     username,
+    currentBadge,
   };
   localStorage.setItem("todoAppData", JSON.stringify(dataToStore));
 }
@@ -92,7 +133,6 @@ function saveData() {
 // Function to clear all data
 function clearData() {
   tasks = [];
-  userBadges = [];
   streak = 0;
   lastCompletionDate = null;
   statistics = {
@@ -103,13 +143,22 @@ function clearData() {
     completionRateByPriority: { low: 0, medium: 0, high: 0 },
   };
   username = "";
+  currentBadge = {
+    name: "Novice",
+    tasks: 0,
+    icon: "🌱",
+    description: "Everyone starts somewhere. You've got this!",
+  };
   saveData();
   renderTasks();
   updateGamificationDisplay();
 }
+// Global variables to track edit mode
+let isEditMode = false;
+let editingTaskId = null;
 
-// Function to add a new task
-async function addTask(e) {
+// Function to add a new task or update an existing one
+async function addOrUpdateTask(e) {
   e.preventDefault();
   showLoading();
   const title = document.getElementById("task-title").value;
@@ -122,29 +171,61 @@ async function addTask(e) {
     .value.split(",")
     .map((tag) => tag.trim());
 
-  const newTask = {
-    title,
-    description,
-    creationDate,
-    dueDate,
-    priority,
-    tags,
-    completed: false,
-  };
+  if (isEditMode) {
+    // Update existing task
+    const taskIndex = tasks.findIndex((t) => t.id === editingTaskId);
+    if (taskIndex !== -1) {
+      tasks[taskIndex] = {
+        ...tasks[taskIndex],
+        title,
+        description,
+        creationDate,
+        dueDate,
+        priority,
+        tags,
+      };
+    }
+    isEditMode = false;
+    editingTaskId = null;
+  } else {
+    // Add new task
+    const newTask = {
+      id: Date.now(),
+      title,
+      description,
+      creationDate,
+      dueDate,
+      priority,
+      tags,
+      completed: false,
+    };
+    tasks.push(newTask);
+    statistics.tasksCreated++;
+  }
 
-  tasks.push(newTask);
-  statistics.tasksCreated++;
   await saveData();
   updateGamificationDisplay();
   renderTasks();
   taskForm.reset();
   setInitialCreationDate();
+
+  // Reset form to "Add Task" mode
+  const submitButton = document.querySelector(
+    '#task-form button[type="submit"]'
+  );
+  submitButton.innerHTML = '<i class="fas fa-plus"></i> Add Task';
+
   hideLoading();
 }
 
 // Function to edit a task
-function editTask(index) {
-  const task = tasks[index];
+function editTask(taskId) {
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) return;
+
+  isEditMode = true;
+  editingTaskId = taskId;
+
   document.getElementById("task-title").value = task.title;
   document.getElementById("task-description").value = task.description;
   document.getElementById("task-creation-date").value = task.creationDate;
@@ -152,50 +233,50 @@ function editTask(index) {
   document.getElementById("task-priority").value = task.priority;
   document.getElementById("task-tags").value = task.tags.join(", ");
 
-  tasks.splice(index, 1);
-
   const submitButton = document.querySelector(
     '#task-form button[type="submit"]'
   );
   submitButton.innerHTML = '<i class="fas fa-save"></i> Update Task';
-  submitButton.onclick = async function (e) {
-    e.preventDefault();
-    showLoading();
-    const updatedTask = {
-      title: document.getElementById("task-title").value,
-      description: document.getElementById("task-description").value,
-      creationDate: document.getElementById("task-creation-date").value,
-      dueDate: document.getElementById("task-due-date").value,
-      priority: document.getElementById("task-priority").value,
-      tags: document
-        .getElementById("task-tags")
-        .value.split(",")
-        .map((tag) => tag.trim()),
-      completed: false,
-    };
-    tasks.push(updatedTask);
-    await saveData();
-    renderTasks();
-    taskForm.reset();
-    setInitialCreationDate();
-    submitButton.innerHTML = '<i class="fas fa-plus"></i> Add Task';
-    submitButton.onclick = addTask;
-    hideLoading();
-  };
+
+  // Scroll to the form
+  taskForm.scrollIntoView({ behavior: "smooth" });
 }
 
+// Update the event listener for the form submission
+taskForm.addEventListener("submit", addOrUpdateTask);
+
 // Function to toggle task completion
-async function toggleComplete(index) {
-  const task = tasks[index];
+async function toggleComplete(taskId) {
+  const task = tasks.find((t) => t.id === taskId);
+  if (!task) return;
+
   const wasCompleted = task.completed;
   task.completed = !task.completed;
   task.completedAt = task.completed ? new Date().toISOString() : null;
 
   if (task.completed && !wasCompleted) {
-    updateBadgesAndStreak();
+    const oldCompletedTasks = statistics.tasksCompleted;
+    const badgeEarned = await updateBadgesAndStreak();
     statistics.completionRateByPriority[task.priority]++;
-    const color = getPriorityColor(task.priority);
-    celebrateAchievement("task", color);
+
+    // Animate progress bar
+    const currentBadge =
+      badges.filter((badge) => oldCompletedTasks >= badge.tasks).pop() ||
+      badges[0];
+    const nextBadge =
+      badges.find((badge) => oldCompletedTasks < badge.tasks) ||
+      badges[badges.length - 1];
+    const fromPercentage = (oldCompletedTasks / nextBadge.tasks) * 100;
+    const toPercentage = (statistics.tasksCompleted / nextBadge.tasks) * 100;
+    animateProgressBar(fromPercentage, toPercentage);
+
+    // Display task completion modal
+    await displayTaskCompletionModal(task);
+
+    // If a badge was earned, display the badge modal after task completion modal is closed
+    if (badgeEarned) {
+      await displayBadgeModal(badgeEarned);
+    }
   } else if (!task.completed && wasCompleted) {
     statistics.tasksCompleted--;
     statistics.completionRateByPriority[task.priority]--;
@@ -207,14 +288,17 @@ async function toggleComplete(index) {
 }
 
 // Function to delete a task
-async function deleteTask(index) {
+async function deleteTask(taskId) {
   if (confirm("Are you sure you want to delete this task?")) {
-    if (tasks[index].completed) {
+    const taskIndex = tasks.findIndex((t) => t.id === taskId);
+    if (taskIndex === -1) return;
+
+    const task = tasks[taskIndex];
+    if (task.completed) {
       statistics.tasksCompleted--;
-      statistics.completionRateByPriority[tasks[index].priority]--;
-      updateGamificationDisplay();
+      statistics.completionRateByPriority[task.priority]--;
     }
-    tasks.splice(index, 1);
+    tasks.splice(taskIndex, 1);
     await saveData();
     updateGamificationDisplay();
     renderTasks();
@@ -251,39 +335,29 @@ async function updateBadgesAndStreak() {
   statistics.completionRateByDay[dayOfWeek] =
     (statistics.completionRateByDay[dayOfWeek] || 0) + 1;
 
+  // Check for new badge
   const newBadge = badges.find(
     (badge) => statistics.tasksCompleted === badge.tasks
   );
-  if (newBadge) {
-    userBadges.push(newBadge.name);
-    const badgeColor = getComputedStyle(document.documentElement)
-      .getPropertyValue("--primary-color")
-      .trim();
-    celebrateAchievement("badge", badgeColor);
+  let badgeEarned = null;
+  if (newBadge && newBadge.name !== currentBadge.name) {
+    badgeEarned = newBadge;
+    currentBadge = newBadge;
   }
-
-  const taskColor = getComputedStyle(document.documentElement)
-    .getPropertyValue("--primary-color")
-    .trim();
-  celebrateAchievement("task", taskColor);
 
   await saveData();
   updateGamificationDisplay();
+  return badgeEarned;
 }
 
 // Function to update gamification display
 function updateGamificationDisplay() {
-  const currentBadge =
-    badges.filter((badge) => statistics.tasksCompleted >= badge.tasks).pop() ||
-    badges[0];
-  const nextBadge =
-    badges.find((badge) => statistics.tasksCompleted < badge.tasks) ||
-    badges[badges.length - 1];
-
   const completedTasks = statistics.tasksCompleted;
+  const nextBadge =
+    badges.find((badge) => completedTasks < badge.tasks) ||
+    badges[badges.length - 1];
   const tasksToNextBadge = nextBadge.tasks - completedTasks;
-  const progressPercentage =
-    completedTasks > 0 ? (completedTasks / nextBadge.tasks) * 100 : 0;
+  const progressPercentage = (completedTasks / nextBadge.tasks) * 100;
 
   const greeting = username ? `${username}'s Progress` : "Your Progress";
 
@@ -298,71 +372,119 @@ function updateGamificationDisplay() {
   }</p>
     
     <h3>Progress to Next Badge</h3>
-    <div class="progress-bar">
-      <div class="progress" style="width: ${progressPercentage}%"></div>
+    <div class="progress-container">
+      <div class="progress-bar">
+        <div class="progress" style="width: ${progressPercentage}%"></div>
+      </div>
+      <div class="progress-labels">
+        <span class="progress-start">${currentBadge.name}</span>
+        <span class="progress-end">${nextBadge.name}</span>
+      </div>
     </div>
-    <p><i class="fas fa-award"></i> Next badge: ${nextBadge.icon} ${
+    <p class="progress-info">
+      <i class="fas fa-award"></i> Next badge: ${nextBadge.icon} ${
     nextBadge.name
-  } (${tasksToNextBadge} tasks to go)</p>
+  }
+      <br>
+      <span class="tasks-to-go">${tasksToNextBadge} task${
+    tasksToNextBadge !== 1 ? "s" : ""
+  } to go</span>
+    </p>
   `;
+
+  // Add tooltip functionality
+  const progressBar = gamificationSection.querySelector(".progress-bar");
+  const tooltip = document.createElement("div");
+  tooltip.classList.add("progress-tooltip");
+  tooltip.textContent = `${Math.round(progressPercentage)}%`;
+  progressBar.appendChild(tooltip);
+
+  progressBar.addEventListener("mousemove", (e) => {
+    const rect = progressBar.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    tooltip.style.left = `${x}px`;
+  });
 }
 
-// Function to render tasks
-function renderTasks(filteredTasks = tasks) {
+function renderTasks() {
   taskList.innerHTML = "";
-  const start = (currentPage - 1) * TASKS_PER_PAGE;
-  const end = start + TASKS_PER_PAGE;
-  const tasksToRender = filteredTasks.slice(start, end);
+  const template = document.getElementById("task-item-template");
 
-  tasksToRender.forEach((task, index) => {
-    const taskItem = document.createElement("div");
-    taskItem.classList.add("task-item");
-    taskItem.classList.add(`priority-${task.priority}`);
-    if (task.completed) {
-      taskItem.classList.add("completed");
+  tasks.forEach((task) => {
+    const taskElement = template.content.cloneNode(true).firstElementChild;
+    taskElement.dataset.taskId = task.id;
+
+    const checkbox = taskElement.querySelector(".task-checkbox");
+    checkbox.checked = task.completed;
+    checkbox.addEventListener("change", () => toggleComplete(task.id));
+
+    const title = taskElement.querySelector(".task-title");
+    title.textContent = task.title;
+
+    const editButton = taskElement.querySelector(".edit-task");
+    editButton.addEventListener("click", () => {
+      editTask(task.id);
+      // Scroll to the form
+      document
+        .getElementById("task-form")
+        .scrollIntoView({ behavior: "smooth" });
+    });
+
+    const deleteButton = taskElement.querySelector(".delete-task");
+    deleteButton.addEventListener("click", () => deleteTask(task.id));
+
+    const toggleButton = taskElement.querySelector(".toggle-details");
+    toggleButton.addEventListener("click", () => {
+      const details = taskElement.querySelector(".task-details");
+      details.classList.toggle("hidden");
+      toggleButton.querySelector("i").classList.toggle("fa-chevron-down");
+      toggleButton.querySelector("i").classList.toggle("fa-chevron-up");
+    });
+
+    const description = taskElement.querySelector(".task-description");
+    description.textContent = task.description || "No description provided";
+
+    const dueDate = taskElement.querySelector(".due-date-value");
+    dueDate.textContent = task.dueDate || "No due date set";
+
+    const priority = taskElement.querySelector(".task-priority");
+    priority.textContent = `Priority: ${task.priority}`;
+    priority.classList.add(`priority-${task.priority}`);
+
+    const tagsContainer = taskElement.querySelector(".task-tags");
+    tagsContainer.innerHTML = ""; // Clear existing tags
+    if (task.tags && task.tags.length > 0) {
+      task.tags.forEach((tag) => {
+        const tagElement = document.createElement("span");
+        tagElement.className = "task-tag";
+        tagElement.textContent = tag;
+        tagsContainer.appendChild(tagElement);
+      });
+    } else {
+      const noTagElement = document.createElement("span");
+      noTagElement.className = "task-tag no-tag";
+      noTagElement.textContent = "No tags";
+      tagsContainer.appendChild(noTagElement);
     }
-    taskItem.innerHTML = `
-      <div>
-        <h3>${task.title}</h3>
-        <p>${task.description}</p>
-        <p><i class="fas fa-calendar-plus"></i> Created: ${
-          task.creationDate || "Not set"
-        }</p>
-        <p><i class="far fa-calendar-alt"></i> Due: ${
-          task.dueDate || "Not set"
-        }</p>
-        <p>${getPriorityIcon(task.priority)} Priority: ${task.priority}</p>
-        <p><i class="fas fa-tags"></i> Tags: ${task.tags.join(", ")}</p>
-      </div>
-      <div>
-        <button onclick="toggleComplete(${
-          start + index
-        })" aria-label="Toggle task completion">
-          <i class="fas ${task.completed ? "fa-undo" : "fa-check"}"></i>
-          ${task.completed ? "Undo Complete" : "Mark Complete"}
-        </button>
-        <button onclick="editTask(${start + index})" aria-label="Edit task">
-          <i class="fas fa-edit"></i> Edit
-        </button>
-        <button onclick="deleteTask(${start + index})" aria-label="Delete task">
-          <i class="fas fa-trash-alt"></i> Delete
-        </button>
-      </div>
-    `;
-    taskList.appendChild(taskItem);
+
+    if (task.completed) {
+      taskElement.classList.add("completed");
+    } else {
+      taskElement.classList.remove("completed");
+    }
+
+    taskList.appendChild(taskElement);
   });
 
-  if (end < filteredTasks.length) {
-    const loadMoreBtn = document.createElement("button");
-    loadMoreBtn.textContent = "Load More";
-    loadMoreBtn.addEventListener("click", () => {
-      currentPage++;
-      renderTasks(filteredTasks);
-    });
-    taskList.appendChild(loadMoreBtn);
-  }
-
   updateAnalytics();
+
+  // If there are no tasks, display a message
+  if (tasks.length === 0) {
+    const noTasksMessage = document.createElement("p");
+    noTasksMessage.textContent = "No tasks yet. Add a task to get started!";
+    noTasksMessage.className = "no-tasks-message";
+    taskList.appendChild(noTasksMessage);
+  }
 }
 
 // Function to get priority icon
@@ -408,15 +530,21 @@ function toggleTheme() {
     "darkMode",
     document.body.classList.contains("dark-mode")
   );
+  updateThemeIcons();
+}
 
-  // Update the checkbox state
-  document.getElementById("checkbox").checked =
-    document.body.classList.contains("dark-mode");
+// Function to update theme icons
+function updateThemeIcons() {
+  const isDarkMode = document.body.classList.contains("dark-mode");
+  const sunIcon = document.querySelector(".theme-switch-wrapper .fa-sun");
+  const moonIcon = document.querySelector(".theme-switch-wrapper .fa-moon");
+
+  sunIcon.style.opacity = isDarkMode ? "0.5" : "1";
+  moonIcon.style.opacity = isDarkMode ? "1" : "0.5";
 }
 
 // Function to search tasks
 const debouncedSearch = debounce(() => {
-  resetPagination();
   const searchTerm = searchInput.value.toLowerCase();
   const filteredTasks = tasks.filter(
     (task) =>
@@ -429,7 +557,6 @@ const debouncedSearch = debounce(() => {
 
 // Function to filter tasks
 function filterTasks() {
-  resetPagination();
   const filterValue = filterSelect.value;
   let filteredTasks = tasks;
 
@@ -467,15 +594,25 @@ function updateAnalytics() {
   `;
 }
 
+// Function to open modal
+function openModal(modal) {
+  modal.style.display = "block";
+}
+
+// Function to close modal
+function closeModal(modal) {
+  modal.style.display = "none";
+}
+
 // Function to open settings modal
 function openSettings() {
-  settingsModal.style.display = "block";
+  openModal(settingsModal);
   document.getElementById("username-input").value = username;
 }
 
 // Function to close settings modal
 function closeSettings() {
-  settingsModal.style.display = "none";
+  closeModal(settingsModal);
 }
 
 // Function to save settings
@@ -489,24 +626,53 @@ function saveSettings() {
 
 // Function to open statistics modal
 function openStatistics() {
-  statisticsModal.style.display = "block";
-  updateStatisticsDisplay();
+  openModal(statisticsModal);
+  const daysToShow = parseInt(document.getElementById("date-range").value);
+  updateStatisticsDisplay(daysToShow);
 }
 
 // Function to close statistics modal
 function closeStatistics() {
-  statisticsModal.style.display = "none";
+  closeModal(statisticsModal);
 }
 
 // Function to update statistics display
-function updateStatisticsDisplay() {
-  const totalTasks = statistics.tasksCreated;
-  const completionRate =
-    totalTasks > 0
-      ? ((statistics.tasksCompleted / totalTasks) * 100).toFixed(2)
-      : 0;
+function updateStatisticsDisplay(daysToShow = 7) {
+  const statisticsContent = document.getElementById("statistics-content");
 
-  const completionRateByDayData = Object.entries(statistics.completionRateByDay)
+  // Calculate the start date based on the selected range
+  const endDate = new Date();
+  const startDate = new Date(
+    endDate.getTime() - daysToShow * 24 * 60 * 60 * 1000
+  );
+
+  // Filter tasks based on date range
+  const filteredTasks = tasks.filter((task) => {
+    const taskDate = new Date(task.completedAt || task.creationDate);
+    return taskDate >= startDate && taskDate <= endDate;
+  });
+
+  const totalTasks = filteredTasks.length;
+  const completedTasks = filteredTasks.filter((task) => task.completed).length;
+  const completionRate =
+    totalTasks > 0 ? ((completedTasks / totalTasks) * 100).toFixed(2) : 0;
+
+  // Prepare data for charts
+  const completionRateByDay = {};
+  const completionRateByPriority = { low: 0, medium: 0, high: 0 };
+
+  filteredTasks.forEach((task) => {
+    if (task.completed) {
+      const dayOfWeek = new Date(task.completedAt).toLocaleDateString("en-US", {
+        weekday: "long",
+      });
+      completionRateByDay[dayOfWeek] =
+        (completionRateByDay[dayOfWeek] || 0) + 1;
+      completionRateByPriority[task.priority]++;
+    }
+  });
+
+  const completionRateByDayData = Object.entries(completionRateByDay)
     .map(([day, count]) => ({ day, count }))
     .sort((a, b) => {
       const days = [
@@ -522,26 +688,24 @@ function updateStatisticsDisplay() {
     });
 
   const completionRateByPriorityData = Object.entries(
-    statistics.completionRateByPriority
+    completionRateByPriority
   ).map(([priority, count]) => ({ priority, count }));
 
-  const statisticsContent = document.getElementById("statistics-content");
+  // Update statistics content
   statisticsContent.innerHTML = `
-    <h2><i class="fas fa-chart-bar"></i> Your Statistics</h2>
-    <p><i class="fas fa-plus-circle"></i> Tasks Created: ${statistics.tasksCreated}</p>
-    <p><i class="fas fa-check-circle"></i> Tasks Completed: ${statistics.tasksCompleted}</p>
-    <p><i class="fas fa-percentage"></i> Overall Completion Rate: ${completionRate}%</p>
-    <p><i class="fas fa-fire"></i> Highest Streak: ${statistics.highestStreak} days</p>
+    <p><i class="fas fa-tasks"></i> Total Tasks: ${totalTasks}</p>
+    <p><i class="fas fa-check-circle"></i> Completed Tasks: ${completedTasks}</p>
+    <p><i class="fas fa-percentage"></i> Completion Rate: ${completionRate}%</p>
     
     <h3><i class="fas fa-calendar-week"></i> Completion Rate by Day</h3>
-    <div id="completion-by-day-chart"></div>
+    <canvas id="completion-by-day-chart"></canvas>
     
     <h3><i class="fas fa-layer-group"></i> Completion Rate by Priority</h3>
-    <div id="completion-by-priority-chart"></div>
+    <canvas id="completion-by-priority-chart"></canvas>
   `;
 
-  // Create charts using Chart.js
-  createChart(
+  // Create charts with interactivity
+  createInteractiveChart(
     "completion-by-day-chart",
     "bar",
     "Completion Rate by Day",
@@ -549,7 +713,7 @@ function updateStatisticsDisplay() {
     "day",
     "count"
   );
-  createChart(
+  createInteractiveChart(
     "completion-by-priority-chart",
     "pie",
     "Completion Rate by Priority",
@@ -559,8 +723,14 @@ function updateStatisticsDisplay() {
   );
 }
 
-// Function to create a chart
-function createChart(elementId, type, title, data, labelKey, dataKey) {
+function createInteractiveChart(
+  elementId,
+  type,
+  title,
+  data,
+  labelKey,
+  dataKey
+) {
   const ctx = document.getElementById(elementId).getContext("2d");
   new Chart(ctx, {
     type: type,
@@ -592,23 +762,125 @@ function createChart(elementId, type, title, data, labelKey, dataKey) {
           display: true,
           text: title,
         },
+        tooltip: {
+          callbacks: {
+            label: function (context) {
+              let label = context.label || "";
+              if (label) {
+                label += ": ";
+              }
+              if (context.parsed !== null) {
+                label += context.parsed;
+                if (type === "pie") {
+                  label += " tasks";
+                }
+              }
+              return label;
+            },
+          },
+        },
+      },
+      onClick: (event, elements) => {
+        if (elements.length > 0) {
+          const index = elements[0].index;
+          const label = data[index][labelKey];
+          const value = data[index][dataKey];
+          alert(`${label}: ${value} tasks`);
+        }
       },
     },
   });
 }
 
-// Function to reset pagination
-function resetPagination() {
-  currentPage = 1;
+function animateProgressBar(fromPercentage, toPercentage) {
+  const progressElement = document.querySelector(".progress");
+  const tooltipElement = document.querySelector(".progress-tooltip");
+  const duration = 1000; // Animation duration in milliseconds
+  const startTime = performance.now();
+
+  function step(currentTime) {
+    const elapsedTime = currentTime - startTime;
+    const progress = Math.min(elapsedTime / duration, 1);
+    const currentPercentage =
+      fromPercentage + (toPercentage - fromPercentage) * progress;
+
+    progressElement.style.width = `${currentPercentage}%`;
+    tooltipElement.textContent = `${Math.round(currentPercentage)}%`;
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+  }
+
+  requestAnimationFrame(step);
 }
 
-// Debounce function
-function debounce(func, delay) {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(this, args), delay);
-  };
+function displayTaskCompletionModal(task) {
+  return new Promise((resolve) => {
+    const taskCompletionMessage = document.getElementById(
+      "task-completion-message"
+    );
+    const taskStreakInfo = document.getElementById("task-streak-info");
+
+    const congratulatoryMessages = [
+      "Great job! You're making progress!",
+      "Awesome work! Keep it up!",
+      "You're on a roll! Fantastic!",
+      "Well done! You're crushing it!",
+      "Impressive! You're unstoppable!",
+    ];
+
+    const randomMessage =
+      congratulatoryMessages[
+        Math.floor(Math.random() * congratulatoryMessages.length)
+      ];
+
+    taskCompletionMessage.innerHTML = `
+      <p>${randomMessage}</p>
+      <p>You completed: <strong>${task.title}</strong></p>
+    `;
+
+    taskStreakInfo.innerHTML = `
+      <p>Current Streak: ${streak} day${streak !== 1 ? "s" : ""}</p>
+      <p>Total Tasks Completed: ${statistics.tasksCompleted}</p>
+    `;
+
+    openModal(taskCompletionModal);
+
+    closetaskCompletionModal.onclick = () => {
+      closeModal(taskCompletionModal);
+      resolve();
+    };
+
+    // Trigger confetti celebration
+    celebrateAchievement("task", getPriorityColor(task.priority));
+  });
+}
+
+function displayBadgeModal(badge) {
+  return new Promise((resolve) => {
+    const badgeDisplay = document.getElementById("badge-display");
+    badgeDisplay.innerHTML = `
+      <div class="badge-icon">${badge.icon}</div>
+      <div class="badge-name">${badge.name}</div>
+      <div class="badge-description">${badge.description}</div>
+    `;
+
+    openModal(badgeModal);
+
+    closeBadgeModal.onclick = () => {
+      closeModal(badgeModal);
+      resolve();
+    };
+
+    // Trigger confetti celebration
+    celebrateAchievement(
+      "badge",
+      getComputedStyle(document.documentElement)
+        .getPropertyValue("--primary-color")
+        .trim()
+    );
+  });
 }
 
 // Function to show loading indicator
@@ -621,6 +893,15 @@ function hideLoading() {
   document.getElementById("loading-indicator").classList.add("hidden");
 }
 
+// Debounce function
+function debounce(func, delay) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(this, args), delay);
+  };
+}
+
 // Event Listeners
 document.addEventListener("DOMContentLoaded", () => {
   setInitialCreationDate();
@@ -631,29 +912,40 @@ document.addEventListener("DOMContentLoaded", () => {
   // Set initial theme
   if (localStorage.getItem("darkMode") === "true") {
     document.body.classList.add("dark-mode");
-    document.getElementById("checkbox").checked = true;
+    document.getElementById("theme-toggle").checked = true;
   }
-});
+  updateThemeIcons();
 
-taskForm.addEventListener("submit", addTask);
-document.getElementById("checkbox").addEventListener("change", toggleTheme);
-searchInput.addEventListener("input", debouncedSearch);
-filterSelect.addEventListener("change", filterTasks);
-settingsButton.addEventListener("click", openSettings);
-closeSettingsButton.addEventListener("click", closeSettings);
-saveSettingsButton.addEventListener("click", saveSettings);
-clearDataButton.addEventListener("click", () => {
-  if (
-    confirm(
-      "Are you sure you want to clear all data? This action cannot be undone."
-    )
-  ) {
-    clearData();
-    closeSettings();
-  }
+  taskForm.addEventListener("submit", addOrUpdateTask);
+  document
+    .getElementById("theme-toggle")
+    .addEventListener("change", toggleTheme);
+  searchInput.addEventListener("input", debouncedSearch);
+  filterSelect.addEventListener("change", filterTasks);
+  settingsButton.addEventListener("click", openSettings);
+  closeSettingsButton.addEventListener("click", closeSettings);
+  saveSettingsButton.addEventListener("click", saveSettings);
+  clearDataButton.addEventListener("click", () => {
+    if (
+      confirm(
+        "Are you sure you want to clear all data? This action cannot be undone."
+      )
+    ) {
+      clearData();
+      closeSettings();
+    }
+  });
+  statisticsButton.addEventListener("click", openStatistics);
+  closeStatisticsButton.addEventListener("click", closeStatistics);
+
+  const dateRangeSelect = document.getElementById("date-range");
+  const updateDateRangeButton = document.getElementById("update-date-range");
+
+  updateDateRangeButton.addEventListener("click", () => {
+    const daysToShow = parseInt(dateRangeSelect.value);
+    updateStatisticsDisplay(daysToShow);
+  });
 });
-statisticsButton.addEventListener("click", openStatistics);
-closeStatisticsButton.addEventListener("click", closeStatistics);
 
 // Keyboard shortcuts
 document.addEventListener("keydown", (e) => {

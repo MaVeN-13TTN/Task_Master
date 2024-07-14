@@ -101,7 +101,8 @@ class ConfettiAnimation {
     }
   }
 
-  triggerAnimation(message, color = "#ffffff") {
+  triggerAnimation(message, color = "#ffffff", duration = 3000) {
+    this.animationDuration = duration;
     this.messageElement.textContent = message;
     this.messageElement.style.color = color;
     this.canvas.style.display = "block";
@@ -116,17 +117,21 @@ const confettiAnimation = new ConfettiAnimation();
 function celebrateAchievement(achievementType, color) {
   let message;
   const name = window.username ? `${window.username}` : "You";
+  let duration = 3000; // Default duration
+
   switch (achievementType) {
     case "task":
       message = `Way to go, ${name}!\nYou completed a task!`;
+      duration = 2000; // Shorter duration for task completion
       break;
     case "badge":
       message = `Congratulations, ${name}!\nYou earned a new badge!`;
+      duration = 4000; // Longer duration for badge earning
       break;
     default:
       message = `Great job, ${name}!`;
   }
-  confettiAnimation.triggerAnimation(message, color);
+  confettiAnimation.triggerAnimation(message, color, duration);
 }
 
 window.celebrateAchievement = celebrateAchievement;

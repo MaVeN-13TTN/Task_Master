@@ -3,30 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>To-Do App</title>
+    <title>Task Master</title>
     <link rel="icon" href="icons8-clipboard-96.png" type="image/png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <header>
-        <h1><i class="fas fa-rocket"></i> My To-Do</h1>
-        <div>
-            <div class="theme-switch-wrapper">
-                <label class="theme-switch" for="checkbox">
-                    <input type="checkbox" id="checkbox" />
-                    <div class="slider round">
+        <div class="header-content">
+            <h1><i class="fas fa-tasks"></i> Task Master</h1>
+            <div class="header-controls">
+                <div class="theme-switch-wrapper">
+                    <span class="theme-switch-label">
                         <i class="fas fa-sun"></i>
+                    </span>
+                    <label class="theme-switch" for="theme-toggle">
+                        <input type="checkbox" id="theme-toggle" />
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="theme-switch-label">
                         <i class="fas fa-moon"></i>
-                    </div>
-                </label>
+                    </span>
+                </div>
+                <button id="settings-button" aria-label="Open settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="statistics-button" aria-label="Open statistics">
+                    <i class="fas fa-chart-line"></i>
+                </button>
             </div>
-            <button id="settings-button" aria-label="Open settings"><i class="fas fa-cog"></i></button>
-            <button id="statistics-button" aria-label="Open statistics"><i class="fas fa-chart-bar"></i></button>
         </div>
     </header>
     <main>
@@ -64,9 +73,38 @@
                 <option value="due-today">Due Today</option>
             </select>
         </section>
-        <section id="task-list" aria-live="polite">
-            <!-- Tasks will be dynamically added here -->
+        <section id="task-list" class="task-list">
+            <!-- Task items will be dynamically inserted here -->
         </section>
+        <template id="task-item-template">
+            <div class="task-item" data-task-id="">
+                <div class="task-header">
+                    <input type="checkbox" class="task-checkbox">
+                    <h3 class="task-title"></h3>
+                    <div class="task-actions">
+                        <button class="edit-task" aria-label="Edit task">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="delete-task" aria-label="Delete task">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        <button class="toggle-details" aria-label="Toggle task details">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="task-details hidden">
+                    <p class="task-description"></p>
+                    <div class="task-metadata">
+                        <span class="task-due-date">
+                            <i class="far fa-calendar-alt"></i> Due: <span class="due-date-value"></span>
+                        </span>
+                        <span class="task-priority"></span>
+                    </div>
+                    <div class="task-tags"></div>
+                </div>
+            </div>
+        </template>
         <section id="analytics" aria-live="polite">
             <!-- Analytics will be dynamically updated here -->
         </section>
@@ -85,10 +123,35 @@
     </div>
     <div id="statistics-modal" class="modal">
         <div class="modal-content">
+            <h2><i class="fas fa-chart-bar"></i> Your Statistics</h2>
+            <div class="date-range-selector">
+                <label for="date-range">Select Date Range:</label>
+                <select id="date-range">
+                    <option value="1">Today</option>
+                    <option value="3">Last 3 Days</option>
+                    <option value="7" selected>Last 7 Days</option>
+                </select>
+                <button id="update-date-range">Update</button>
+            </div>
             <div id="statistics-content">
                 <!-- Statistics will be dynamically added here -->
             </div>
             <button id="close-statistics"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+    <div id="task-completion-modal" class="modal">
+        <div class="modal-content">
+            <h2>Task Completed!</h2>
+            <div id="task-completion-message"></div>
+            <div id="task-streak-info"></div>
+            <button id="close-task-completion-modal">Close</button>
+        </div>
+    </div>
+    <div id="badge-modal" class="modal">
+        <div class="modal-content">
+            <h2>New Badge Earned!</h2>
+            <div id="badge-display"></div>
+            <button id="close-badge-modal">Close</button>
         </div>
     </div>
     <div id="loading-indicator" class="hidden">
