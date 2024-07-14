@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>To-Do App</title>
+    <link rel="icon" href="icons8-clipboard-96.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header>
+        <h1><i class="fas fa-rocket"></i> My To-Do</h1>
+        <div>
+            <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="checkbox">
+                    <input type="checkbox" id="checkbox" />
+                    <div class="slider round">
+                        <i class="fas fa-sun"></i>
+                        <i class="fas fa-moon"></i>
+                    </div>
+                </label>
+            </div>
+            <button id="settings-button" aria-label="Open settings"><i class="fas fa-cog"></i></button>
+            <button id="statistics-button" aria-label="Open statistics"><i class="fas fa-chart-bar"></i></button>
+        </div>
+    </header>
+    <main>
+        <section id="gamification" aria-live="polite">
+            <!-- Gamification info will be dynamically updated here -->
+        </section>
+        <section id="task-input">
+            <form id="task-form">
+                <input type="text" id="task-title" placeholder="Task title" required aria-label="Task title">
+                <textarea id="task-description" placeholder="Task description" aria-label="Task description"></textarea>
+                <div class="input-group">
+                    <label for="task-creation-date">Creation Date:</label>
+                    <input type="date" id="task-creation-date" aria-label="Creation date">
+                </div>
+                <div class="input-group">
+                    <label for="task-due-date">Due Date:</label>
+                    <input type="date" id="task-due-date" aria-label="Due date">
+                </div>
+                <select id="task-priority" aria-label="Task priority">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <input type="text" id="task-tags" placeholder="Tags (comma-separated)" aria-label="Task tags">
+                <button type="submit"><i class="fas fa-plus"></i> Add Task</button>
+            </form>
+        </section>
+        <section id="task-management">
+            <input type="text" id="search-input" placeholder="Search tasks" aria-label="Search tasks">
+            <select id="filter-select" aria-label="Filter tasks">
+                <option value="all">All Tasks</option>
+                <option value="completed">Completed</option>
+                <option value="incomplete">Incomplete</option>
+                <option value="high-priority">High Priority</option>
+                <option value="due-today">Due Today</option>
+            </select>
+        </section>
+        <section id="task-list" aria-live="polite">
+            <!-- Tasks will be dynamically added here -->
+        </section>
+        <section id="analytics" aria-live="polite">
+            <!-- Analytics will be dynamically updated here -->
+        </section>
+    </main>
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h2><i class="fas fa-cog"></i> Settings</h2>
+            <div class="setting-group">
+                <label for="username-input">Your Name:</label>
+                <input type="text" id="username-input" placeholder="Enter your name">
+            </div>
+            <button id="save-settings"><i class="fas fa-save"></i> Save Settings</button>
+            <button id="clear-data"><i class="fas fa-trash-alt"></i> Clear All Data</button>
+            <button id="close-settings"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+    <div id="statistics-modal" class="modal">
+        <div class="modal-content">
+            <div id="statistics-content">
+                <!-- Statistics will be dynamically added here -->
+            </div>
+            <button id="close-statistics"><i class="fas fa-times"></i> Close</button>
+        </div>
+    </div>
+    <div id="loading-indicator" class="hidden">
+        <div class="spinner"></div>
+    </div>
+    <footer>
+        <p><i class="fas fa-keyboard"></i> Keyboard shortcuts: Ctrl/Cmd + N (New Task), Ctrl/Cmd + F (Search)</p>
+    </footer>
+    <script src="confetti.js"></script>
+    <script src="scripts.js"></script>
+</body>
+</html>
