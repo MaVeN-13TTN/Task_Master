@@ -11,12 +11,15 @@
 }
 
 body.dark-mode {
-    --bg-color: #1a1a1a;
-    --text-color: #f0f0f0;
-    --primary-color: #61dafb;
-    --secondary-color: #2c2c2c;
-    --completed-color: #aaa;
-    --futuristic-glow: 0 0 10px rgba(97, 218, 251, 0.5);
+    --bg-color: #121212;
+    --text-color: #ffffff;
+    --primary-color: #4a90e2;
+    --secondary-color: #1e1e1e;
+    --completed-color: #9e9e9e;
+    --futuristic-glow: 0 0 10px rgba(74, 144, 226, 0.5);
+    --priority-low: #4caf50;
+    --priority-medium: #ffc107;
+    --priority-high: #f44336;
 }
 
 * {
